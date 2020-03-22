@@ -7,6 +7,7 @@ if (!commands) {
 }
 
 const { fetch } = require("./crawler");
+const { fetchAll } = require("./all");
 const command = commands[0];
 
 const dateTime = new Date().toISOString().split("T");
@@ -16,6 +17,11 @@ switch (command) {
   case "update":
     console.log(`ready to update numbers for ${date}... `);
     fetch(date);
+    break;
+
+  case "dailyAll":
+    console.log(`ready to get all data for ${date}... `);
+    fetchAll(date);
     break;
 
   default:
