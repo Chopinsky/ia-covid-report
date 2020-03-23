@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import "./app.css";
 import iaGeoJSON from "../data/ia_2500k.json";
+import cases from "../data/2020-03-22.json";
 
 const divID = "ia_map";
-let L, geoJson;
+const grades = [0, 2, 8, 16, 32, 64, 128];
+
+let useMapbox = false;
+let L, geoJson, allCases;
 
 function onEachFeature(feature, layer) {
   layer.on({
@@ -34,49 +38,126 @@ function resetHighlight(e) {
   }
 }
 
-function getColor(d) {
-  return d > 90
+function getColor(name, number) {
+  if (typeof number !== 'number') {
+    if (!name) {
+      return "#FFFFFF";
+    }
+
+    let county = allCases[name];
+    if (!county) {
+      return "#FFFFFF";
+    }
+
+    number = county["Confirmed"];    
+  }
+
+  return number > grades[6]
     ? "#800026"
-    : d > 80
+    : number > grades[5]
     ? "#BD0026"
-    : d > 70
+    : number > grades[4]
     ? "#E31A1C"
-    : d > 60
+    : number > grades[3]
     ? "#FC4E2A"
-    : d > 50
+    : number > grades[2]
     ? "#FD8D3C"
-    : d > 20
+    : number > grades[1]
     ? "#FEB24C"
-    : d > 10
+    : number > grades[0]
     ? "#FED976"
-    : "#FFEDA0";
+    : "#FFFFFF";
 }
 
 function style(feature) {
   return {
-    fillColor: getColor(parseInt(feature.properties.COUNTY)),
-    weight: 2,
-    opacity: 0.8,
-    color: "white",
+    fillColor: getColor(feature.properties.NAME),
+    weight: 1.2,
+    opacity: 0.4,
+    color: "black",
     dashArray: "3",
     fillOpacity: 0.4
   };
 }
 
+function legendDisplay(grade) {
+  if (grade < 10) {
+    return `<span style="padding-left: 14px;"> ${grade}</span>`;
+  } else if (grade < 100) {
+    return `<span style="padding-left: 7px;"> ${grade}</span>`;
+  }
+
+  return `<span>${grade}</span>`;
+}
+
 function App() {
-  const [_map, setMap] = useState(null);
+  const [map, setMap] = useState(null);
+  const [dayCase, setDayCase] = useState(null);
+
+  if (!dayCase) {
+    setDayCase(cases);    
+  }
+
+  const renderLegend = (L, map) => {
+    let legend = L.control({ position: 'bottomright' });
+
+    legend.onAdd = function (map) {
+      const div = L.DomUtil.create('div', 'info legend');
+      const grades = [0, 2, 8, 16, 32, 64, 128];
+
+      div.innerHTML += `<p style="margin-bottom: 4px; line-height: 1;">Confirmed <br> Cases</p>`
+
+      // loop through our density intervals and generate a label with a colored square for each interval
+      for (let i = 0; i < grades.length; i++) {
+        div.innerHTML +=
+          `<i style="background-color:${getColor(null, grades[i])}; border: 0.5px solid rgb(0, 0, 0, 0.5);"></i>`;
+        
+        div.innerHTML += legendDisplay(grades[i]) + (grades[i + 1] ? '<br>' : '+');
+      }
+
+      return div;
+    };
+
+    legend.addTo(map);
+  }
+
+  // if day cases 
+  useEffect(() => {
+    allCases = {};
+
+    dayCase.forEach(county => {
+      allCases[county["Name"]] = county;
+    });
+
+    if (map && geoJson) {
+      geoJson.resetStyle();
+    }
+  }, [map, dayCase]);
 
   useEffect(() => {
+    let initDayCase = dayCase ? dayCase : cases || [];
+    allCases = {};
+
+    initDayCase.forEach(county => {
+      allCases[county["Name"]] = county;
+    });
+
     const callback = _evt => {
       window.removeEventListener("load", callback);
 
-      if (window.L) {
-        L = window.L;
+      if (!window.L) {
+        console.error("[error] failed to initialize the map ... ");
+        return;
+      }
 
+      L = window.L;
+      let m;
+
+      if (useMapbox) {
         /** 
          * use mapbox
-         *
-        const m = L.map(divID, {
+         */
+        m = L.map(divID, {
           maxBounds: L.latLngBounds(
             L.latLng(50, -100),
             L.latLng(30, -80)
@@ -86,7 +167,7 @@ function App() {
         L.tileLayer(
           "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw",
           {
-            maxZoom: 12,
+            maxZoom: 10,
             attribution:
               'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
               '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
@@ -96,91 +177,43 @@ function App() {
             zoomOffset: -1
           }
         ).addTo(m);
-        */
-
-        /** */
-        const m = L.map(divID, {
+      } else {
+        /** 
+         * by default, use Stamen tiles
+         */
+        m = L.map(divID, {
           center: new L.LatLng(41.9868, -93.625),
+          maxBounds: L.latLngBounds(
+            L.latLng(50, -100),
+            L.latLng(36, -86)
+          ),
           zoom: 7,
         });
         
         const layer = new L.StamenTileLayer("toner"); //terrain");
         m.addLayer(layer);
-
-        /**
-         *  add overlay
-        L.LabelOverlay = L.Class.extend({
-          initialize: function(
-            latLng,
-            label,
-            options
-          ) {
-            this._latlng = latLng;
-            this._label = label;
-            L.Util.setOptions(this, options);
-          },
-          options: {
-            offset: new L.Point(0, 2)
-          },
-          onAdd: function(map) {
-            this._map = map;
-            if (!this._container) {
-              this._initLayout();
-            }
-
-            this._container.innerHTML = this._label;
-            map.getPanes().overlayPane.appendChild(this._container);
-            map.on("viewreset", this._reset, this);
-
-            this._reset();
-          },
-          onRemove: function(map) {
-            map.getPanes().overlayPane.removeChild(this._container);
-            map.off("viewreset", this._reset, this);
-          },
-          _reset: function() {
-            const pos = this._map.latLngToLayerPoint(this._latlng);
-
-            const op = new L.Point(
-              pos.x + this.options.offset.x,
-              pos.y - this.options.offset.y
-            );
-
-            L.DomUtil.setPosition(this._container, op);
-          },
-          _initLayout: function() {
-            this._container = L.DomUtil.create(
-              "div",
-              "__leaflet-label-overlay"
-            );
-          }
-        });
-
-        const loc = new L.LatLng(-96.327706, 42.249992);
-        const titleLayer = new L.LabelOverlay(loc, "<b>COUNTY -- AMES</b>");
-        m.addLayer(titleLayer);
-        */
-
-        geoJson = L.geoJson(iaGeoJSON, {
-          style: style,
-          onEachFeature: onEachFeature
-        })
-        .bindTooltip(function(layer) {
-          return layer.feature.properties.NAME;
-        })
-        .addTo(m);
-
-        const loc = new L.latLng(42.383745, -94.397182);
-        L.marker(loc, {
-          icon: L.divIcon({
-            className: "text-labels", // Set class for CSS styling
-            html: "<b>A Text Label</b>"
-          }),
-          zIndexOffset: 1000 // Make appear above other map features
-        }).addTo(m);
-
-        setMap(m);
       }
+
+      geoJson = L.geoJson(iaGeoJSON, {
+        style: style,
+        onEachFeature: onEachFeature
+      })
+      .bindTooltip(function(layer) {
+        let name = layer.feature.properties.NAME;
+        if (name) {
+          let countyInfo = allCases[name];
+          if (countyInfo) {
+            return name + ": " + countyInfo["Confirmed"];
+          }
+        }
+
+        return name + ": 0";
+      })
+      .addTo(m);
+
+      renderLegend(L, m);
+
+      setMap(m);
     };
 
     window.addEventListener("load", callback);
@@ -197,6 +230,9 @@ function App() {
         <div className="row">
           <div className="col-sm"></div>
           <div className="col-6">
+            <div className={"d-flex justify-content-center m-2"}>
+              <h5>Last updated on: 03-22-2020 4:00PM CST</h5>
+            </div>
             <div id={divID} style={{ minHeight: "480px", width: "100%" }}></div>
           </div>
           <div className="col-sm"></div>
