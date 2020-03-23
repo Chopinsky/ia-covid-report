@@ -3,14 +3,38 @@ import "./app.css";
 import iaGeoJSON from "../data/ia_2500k.json";
 
 const divID = "ia_map";
-let printed = false;
+let L, geoJson;
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: e => highlightFeature(e, feature, layer),
+    mouseout: resetHighlight,
+    // click: zoomToFeature
+  });
+}
+
+function highlightFeature(_evt, feature, baseLayer) {
+  baseLayer.setStyle({
+    weight: 4,
+    color: "#666",
+    dashArray: "",
+    fillOpacity: 0.7
+  });
+
+  // console.log(feature.properties.NAME);
+
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+    baseLayer.bringToFront();
+  }
+}
+
+function resetHighlight(e) {
+  if (geoJson) {
+    geoJson.resetStyle(e.target);
+  }
+}
 
 function getColor(d) {
-  if (!printed) {
-    console.log("data", d);
-    printed = true;
-  }
-
   return d > 90
     ? "#800026"
     : d > 80
@@ -32,10 +56,10 @@ function style(feature) {
   return {
     fillColor: getColor(parseInt(feature.properties.COUNTY)),
     weight: 2,
-    opacity: 1,
+    opacity: 0.8,
     color: "white",
     dashArray: "3",
-    fillOpacity: 0.7
+    fillOpacity: 0.4
   };
 }
 
@@ -47,31 +71,22 @@ function App() {
       window.removeEventListener("load", callback);
 
       if (window.L) {
-        const { L } = window;
-
-        const layer = new L.StamenTileLayer("toner"); //terrain");
-        const m = L.map(divID, {
-          center: new L.LatLng(41.9868, -93.625),
-          zoom: 7,
-        });
-
-        m.addLayer(layer);
-        L.geoJson(iaGeoJSON, {
-          style: style,
-        }).addTo(m);
-
-        setMap(m);
-
+        L = window.L;
 
         /** 
          * use mapbox
          *
-        const map = L.map(divID).setView([37.8, -96], 4);
+        const m = L.map(divID, {
+          maxBounds: L.latLngBounds(
+            L.latLng(50, -100),
+            L.latLng(30, -80)
+          )
+        }).setView([41.9868, -93.625], 7);
 
         L.tileLayer(
           "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw",
           {
-            maxZoom: 18,
+            maxZoom: 12,
             attribution:
               'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
               '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
@@ -80,11 +95,91 @@ function App() {
             tileSize: 512,
             zoomOffset: -1
           }
-        ).addTo(map);
-
-        const _geojson = L.geoJson(iaGeoJSON).addTo(map);
-        setMap(map);
+        ).addTo(m);
         */
+
+        /** */
+        const m = L.map(divID, {
+          center: new L.LatLng(41.9868, -93.625),
+          zoom: 7,
+        });
+        
+        const layer = new L.StamenTileLayer("toner"); //terrain");
+        m.addLayer(layer);
+
+        /**
+         *  add overlay
+        L.LabelOverlay = L.Class.extend({
+          initialize: function(
+            latLng,
+            label,
+            options
+          ) {
+            this._latlng = latLng;
+            this._label = label;
+            L.Util.setOptions(this, options);
+          },
+          options: {
+            offset: new L.Point(0, 2)
+          },
+          onAdd: function(map) {
+            this._map = map;
+            if (!this._container) {
+              this._initLayout();
+            }
+
+            this._container.innerHTML = this._label;
+            map.getPanes().overlayPane.appendChild(this._container);
+            map.on("viewreset", this._reset, this);
+
+            this._reset();
+          },
+          onRemove: function(map) {
+            map.getPanes().overlayPane.removeChild(this._container);
+            map.off("viewreset", this._reset, this);
+          },
+          _reset: function() {
+            const pos = this._map.latLngToLayerPoint(this._latlng);
+
+            const op = new L.Point(
+              pos.x + this.options.offset.x,
+              pos.y - this.options.offset.y
+            );
+
+            L.DomUtil.setPosition(this._container, op);
+          },
+          _initLayout: function() {
+            this._container = L.DomUtil.create(
+              "div",
+              "__leaflet-label-overlay"
+            );
+          }
+        });
+
+        const loc = new L.LatLng(-96.327706, 42.249992);
+        const titleLayer = new L.LabelOverlay(loc, "<b>COUNTY -- AMES</b>");
+        m.addLayer(titleLayer);
+        */
+
+        geoJson = L.geoJson(iaGeoJSON, {
+          style: style,
+          onEachFeature: onEachFeature
+        })
+        .bindTooltip(function(layer) {
+          return layer.feature.properties.NAME;
+        })
+        .addTo(m);
+
+        const loc = new L.latLng(42.383745, -94.397182);
+        L.marker(loc, {
+          icon: L.divIcon({
+            className: "text-labels", // Set class for CSS styling
+            html: "<b>A Text Label</b>"
+          }),
+          zIndexOffset: 1000 // Make appear above other map features
+        }).addTo(m);
+
+        setMap(m);
       }
     };
 

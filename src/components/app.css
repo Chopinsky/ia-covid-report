@@ -1,3 +1,10 @@
 .container-padding {
   padding: 40px 20px;
 }
+
+.text-labels {
+    font-size: 2em;
+    font-weight: 700;
+    color: black;
+    /* Use color, background, set margins for offset, etc */
+}
