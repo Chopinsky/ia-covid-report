@@ -10,6 +10,7 @@
 
 # production
 /build
+/data/total_raw/*
 
 # misc
 .DS_Store
