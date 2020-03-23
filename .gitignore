@@ -11,6 +11,9 @@
 # production
 /build
 /data/total_raw/*
+/data/ia_geo_json/*
+/data/ia_raw/*
+/src/data/*
 
 # misc
 .DS_Store

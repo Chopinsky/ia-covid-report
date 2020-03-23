@@ -8,6 +8,7 @@ if (!commands) {
 
 const { fetch } = require("./crawler");
 const { fetchAll } = require("./all");
+const { processGeoData } = require("./process");
 const command = commands[0];
 
 const dateTime = new Date().toISOString().split("T");
@@ -22,6 +23,10 @@ switch (command) {
   case "dailyAll":
     console.log(`ready to get all data for ${date}... `);
     fetchAll(date);
+    break;
+
+  case "geo":
+    processGeoData();
     break;
 
   default:
