@@ -13,6 +13,9 @@
 /data/total_raw/*
 /data/ia_geo_json/*
 /data/ia_raw/*
+/data/daily/*
+/data/history/*
+/data/summary/*
 
 # misc
 .DS_Store

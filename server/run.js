@@ -9,7 +9,9 @@ if (!commands) {
 const { fetch } = require("./crawler");
 const { fetchAll } = require("./all");
 const { processGeoData } = require("./process");
-const command = commands[0];
+
+const command = (commands[0] || '').trim().toLowerCase();
+console.log('ready to run command: ', command);
 
 const dateTime = new Date().toISOString().split("T");
 const date = dateTime[0];
@@ -20,7 +22,7 @@ switch (command) {
     fetch(date);
     break;
 
-  case "dailyAll":
+  case "dailyall":
     console.log(`ready to get all data for ${date}... `);
     fetchAll(date);
     break;
@@ -30,5 +32,6 @@ switch (command) {
     break;
 
   default:
+    console.log('no matching ....');
     break;
 }

@@ -16,6 +16,7 @@ exports.fetch = function(date) {
     .get(url)
     .then(({ data }) => {
       if (!data || !data.features) {
+        console.log('no data ... ');
         return;
       }
 
